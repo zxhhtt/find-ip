@@ -1,195 +1,114 @@
 package main
 
 import (
-	"archive/zip"
-	"bufio"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
+    "archive/zip"
+    "bufio"
+    "fmt"
+    "io"
+    "io/ioutil"
+    "log"
+    "net/http"
+    "os"
+    "path/filepath"
+    "strings"
+    "os/exec"
+)
+
+func main() {
+    // 获取当前工作目录
+    currentDirectory, err := os.Getwd()
+    if err != nil {
+        log.Fatalf("获取当前工作目录失败：%v", err)
+        return
+    }
+
+    // 删除当前文件夹中的所有txt和zip文件
+    err = deleteFiles(currentDirectory, ".txt", ".zip")
+    if err != nil {
+        log.Fatalf("删除文件失败：%v", err)
+        return
+    }
+    fmt.Println("清理旧文件 >>>")
 	
-	"github.com/gen2brain/beeep"
-)
+    // 下载zip文件
+    zipURL := "https://zip.baipiao.eu.org"
+    zipFileName := "files.zip"
+    err = downloadFile(zipURL, zipFileName)
+    if err != nil {
+        log.Fatalf("下载文件失败：%v", err)
+        return
+    }
 
-func main() {
-	// 获取当前工作目录
-	currentDirectory, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("获取当前工作目录失败：%v", err)
-		return
-	}
+    // 解压文件
+    unzipDirectory := currentDirectory
+    err = unzip(zipFileName, unzipDirectory)
+    if err != nil {
+        log.Fatalf("解压文件失败：%v", err)
+        return
+    }
+    fmt.Println("下载并解压 >>>")
+	
+    // 合并txt文件并去重
+    err = mergeAndRemoveDuplicates(unzipDirectory)
+    if err != nil {
+        log.Fatalf("合并和去重文件失败：%v", err)
+        return
+    }
+    fmt.Println("合并与去重 >>>")
 
-	// 删除当前文件夹中的所有txt和zip文件
-	err = deleteFiles(currentDirectory, ".txt", ".zip")
-	if err != nil {
-		log.Fatalf("删除文件失败：%v", err)
-		return
-	}
+    // 复制到目标路径
+    destinationDirectory := "D:\\Download\\ip\\0724workers-IP"
+    err = copyFile(filepath.Join(unzipDirectory, "ip.txt"), filepath.Join(destinationDirectory, "ip.txt"))
+    if err != nil {
+        log.Fatalf("复制文件失败：%v", err)
+        return
+    }
+    fmt.Println("复制新文件 >>>")
 
-	// 下载zip文件
-	zipURL := "https://zip.baipiao.eu.org"
-	zipFileName := "files.zip"
-	err = downloadFile(zipURL, zipFileName)
-	if err != nil {
-		log.Fatalf("下载文件失败：%v", err)
-		return
-	}
+    // 删除包含"-0-"的txt文件
+    err = deleteFilesWithPattern(unzipDirectory, "*-0-*.txt")
+    if err != nil {
+        log.Fatalf("删除文件失败：%v", err)
+        return
+    }
+    fmt.Println("del  80 >>>")
+    fmt.Println("已完成")
 
-	// 解压文件
-	unzipDirectory := currentDirectory
-	err = unzip(zipFileName, unzipDirectory)
-	if err != nil {
-		log.Fatalf("解压文件失败：%v", err)
-		return
-	}
+    // 询问用户是否跳转到指定目录
+    var userInput string
+    fmt.Print("是否跳转到 D:\\Download\\ip\\0724workers-IP？ (Y/N): ")
+    // 读取用户输入
+    fmt.Scanln(&userInput)
 
-	// 合并txt文件并去重
-	err = mergeAndRemoveDuplicates(unzipDirectory)
-	if err != nil {
-		log.Fatalf("合并和去重文件失败：%v", err)
-		return
-	}
-
-	// 复制到目标路径
-	destinationDirectory := "D:\\Download\\ip\\0724workers-IP"
-	err = copyFile(filepath.Join(unzipDirectory, "ip.txt"), filepath.Join(destinationDirectory, "ip.txt"))
-	if err != nil {
-		log.Fatalf("复制文件失败：%v", err)
-		return
-	}
-
-	// 删除包含"-0-"的txt文件
-	err = deleteFilesWithPattern(unzipDirectory, "*-0-*.txt")
-	if err != nil {
-		log.Fatalf("删除文件失败：%v", err)
-		return
-	}
-
-	// 发送通知
-	sendNotification("已完成下载去重")
+    // 如果用户未输入任何内容，则默认为 "Y"
+    if userInput == "" || strings.ToLower(userInput) == "y" {
+        // 执行跳转到目录的操作
+        err := openExplorer(destinationDirectory) 
+        if err != nil {
+            log.Fatalf("打开目录失败：%v", err)
+        }
+    }
 }
 
 func downloadFile(url, fileName string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+    resp, err := http.Get(url)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
 
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+    file, err := os.Create(fileName)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
 
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return err
-	}
+    _, err = io.Copy(file, resp.Body)
+    if err != nil {
+        return err
+    }
 
-	return nil
-}
-
-package main
-
-import (
-	"archive/zip"
-	"bufio"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
-
-	"github.com/gen2brain/beeep"
-)
-
-func main() {
-	// 获取当前工作目录
-	currentDirectory, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("获取当前工作目录失败：%v", err)
-		return
-	}
-
-	// 删除当前文件夹中的所有txt和zip文件
-	err = deleteFiles(currentDirectory, ".txt", ".zip")
-	if err != nil {
-		log.Fatalf("删除文件失败：%v", err)
-		return
-	}
-
-	// 下载zip文件
-	zipURL := "https://zip.baipiao.eu.org"
-	zipFileName := "files.zip"
-	err = downloadFile(zipURL, zipFileName)
-	if err != nil {
-		log.Fatalf("下载文件失败：%v", err)
-		return
-	}
-
-	// 解压文件
-	unzipDirectory := currentDirectory
-	err = unzip(zipFileName, unzipDirectory)
-	if err != nil {
-		log.Fatalf("解压文件失败：%v", err)
-		return
-	}
-
-	// 合并txt文件并去重
-	err = mergeAndRemoveDuplicates(unzipDirectory)
-	if err != nil {
-		log.Fatalf("合并和去重文件失败：%v", err)
-		return
-	}
-
-	// 复制到目标路径
-	destinationDirectory := "D:\\Download\\ip\\0724workers-IP"
-	err = copyFile(filepath.Join(unzipDirectory, "ip.txt"), filepath.Join(destinationDirectory, "ip.txt"))
-	if err != nil {
-		log.Fatalf("复制文件失败：%v", err)
-		return
-	}
-
-	// 删除包含"-0-"的txt文件
-	err = deleteFilesWithPattern(unzipDirectory, "*-0-*.txt")
-	if err != nil {
-		log.Fatalf("删除文件失败：%v", err)
-		return
-	}
-
-	// 发送通知
-	sendNotification("已完成下载去重")
-}
-
-func downloadFile(url, fileName string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
+    return nil
 }
 
 func unzip(src, dest string) error {
@@ -328,29 +247,6 @@ func deleteFilesWithPattern(directory, pattern string) error {
     return nil
 }
 
-func sendNotification(message string) {
-	err := beeep.Notify("通知标题", message, "")
-	if err != nil {
-		fmt.Println("无法发送通知:", err)
-		return
-	}
-
-	fmt.Println("通知已发送")
-
-	// 给通知足够的时间显示
-	time.Sleep(5 * time.Second)
-}
-
-
-func sendNotification(message string) {
-	err := beeep.Notify("通知标题", message, "")
-	if err != nil {
-		fmt.Println("无法发送通知:", err)
-		return
-	}
-
-	fmt.Println("通知已发送")
-
-	// 给通知足够的时间显示
-	time.Sleep(5 * time.Second)
+func openExplorer(directory string) error {
+    return exec.Command("explorer", directory).Start()
 }
